@@ -1,0 +1,55 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Mobitrix WATransfer
+    runs-on: windows-latest
+
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v2
+
+    - name: Set up Visual Studio
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build solution
+      run: msbuild MobitrixWATransfer.sln /p:Configuration=Release
+
+    - name: Create ZIP package
+      run: |
+        mkdir output
+        powershell Compress-Archive -Path .\MobitrixWATransfer\bin\Release\* -DestinationPath ./output/MobitrixWATransfer.zip
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: MobitrixWATransfer
+        path: ./output/MobitrixWATransfer.zip
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - name: Download artifact
+      uses: actions/download-artifact@v2
+      with:
+        name: MobitrixWATransfer
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ./MobitrixWATransfer/MobitrixWATransfer.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
